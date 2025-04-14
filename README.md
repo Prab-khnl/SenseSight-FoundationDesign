@@ -1,25 +1,47 @@
 # SenseSight-FoundationDesign
-Team Members:-
-Brandon Brown bjb754 EE
-Juan Mateo Jm5487
-Micah Coleman mac1354 CPE
-Prabesh Khanal pk571 CPE
 
-This repo contains the code for sunglasses built for blind people using ESP32 AI Module, Ultrasonic Sensor, Infrared Sesnsor and Speakers.
+## Team Members
+- **Brandon Brown** — `bjb754` — EE  
+- **Juan Mateo** — `jm5487`  
+- **Micah Coleman** — `mac1354` — CPE  
+- **Prabesh Khanal** — `pk571` — CPE  
 
-This code integrates ESP32 CAM, Ultrasonic Sensor, IR obstacle detection sensor and HF Mini player with the Arduino Uno. The code communicates with ESP32 CAM over Serial communication which outputs the prediction of the object the ESP32 CAM detected. The ESP32 CAM was trained on FOMO (Faster Objects, More Objects) using EdgeImpuse. The objects of interest are Wall, Chair, Door and Stool. We believe these objects are crucial for blind person to detect so that they could navigate easily.Based upon the object detected, the Arduino Uno sends the corresponding sound (eg. Wall) for the HF Mini player to play on the speaker. The Ultrasonic and IR sensors are also working side by side to play the buzzing sound when the object is very close to the blind person. In this way, it can help blind person navigate safely with out coliding with the objects.
+---
 
-Working Arduino Uno code :-
+## Project Description
+
+This repository contains the Arduino Uno code for **SenseSight**, a wearable assistive device for visually impaired individuals.
+
+The system combines:
+- **ESP32-CAM** trained with a FOMO (Faster Objects, More Objects) model using **Edge Impulse**
+- **Ultrasonic sensor** for distance measurement
+- **IR obstacle detection sensor** for detecting close objects
+- **DFPlayer Mini** module with a speaker for audio feedback
 
 
+### Object Detection:
+The ESP32-CAM detects four key objects:
+- Wall
+- Chair
+- Door
+- Stool
 
-//Team Members:-
-//Brandon Brown bjb754 EE
-//Juan Mateo Jm5487
-//Micah Coleman mac1354 CPE
-//Prabesh Khanal pk571 CPE
+These are critical for obstacle navigation. Detected objects are sent via serial communication to the Arduino Uno, which then triggers corresponding audio signal using the DFPlayer Mini.
 
+### Collision Avoidance:
+In addition to object recognition, the ultrasonic and IR sensors detect nearby obstacles. When a potential collision is detected (object closer than 25 cm), a buzzer alerts the user.
+ In this way, it can help blind person navigate safely without coliding with the objects.
 
+---
+
+## Arduino Uno Code
+
+```cpp
+// Team Members:-
+// Brandon Brown bjb754 EE
+// Juan Mateo Jm5487
+// Micah Coleman mac1354 CPE
+// Prabesh Khanal pk571 CPE
 
 #define TRIG_PIN 9
 #define ECHO_PIN 12
@@ -35,93 +57,83 @@ SoftwareSerial mySoftwareSerial(5, 6); // DFPlayer Mini RX, TX
 DFRobotDFPlayerMini myDFPlayer;
 
 void setup() {
-  // Start hardware serial for communication with ESP32-CAM (pins 0 and 1)
-  Serial.begin(115200); // For Arduino to Serial Monitor and ESP32 communication
+  Serial.begin(115200); // Communication with ESP32-CAM
+  mySoftwareSerial.begin(9600); // DFPlayer Mini communication
 
-  // Start SoftwareSerial for DFPlayer Mini
-  mySoftwareSerial.begin(9600); // For DFPlayer Mini communication
-
-  // Set pin modes for other components
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(irSensorPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
-  pinMode(switchPin, INPUT_PULLUP);  // Pull-up resistor enabled
+  pinMode(switchPin, INPUT_PULLUP);  // Internal pull-up resistor
 
-  // Initialize DFPlayer Mini
   Serial.println(F("Initializing DFPlayer..."));
   if (!myDFPlayer.begin(mySoftwareSerial)) {
     Serial.println(F("DFPlayer Mini not detected!"));
-    while (1);  // Stay here if DFPlayer is not found
+    while (1);
   }
-  myDFPlayer.volume(30);  // Set volume level
-  myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);  // Set EQ
+  myDFPlayer.volume(30);  // Max volume
+  myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);
   Serial.println(F("DFPlayer Initialized!"));
 }
 
 void loop() {
-  // Read input from IR sensor and switch
   int irValue = digitalRead(irSensorPin);
-  int switchState = digitalRead(switchPin);  // Read the state of the switch
+  int switchState = digitalRead(switchPin);  // LOW = Pressed
 
-  // Debugging: print the switch state
   Serial.print("Switch state: ");
-  Serial.println(switchState == LOW ? 1 : 0); // LOW means the switch is pressed, as we are using INPUT_PULLUP
+  Serial.println(switchState == LOW ? 1 : 0);
 
-  // Check for incoming data from ESP32 (via hardware Serial)
+  // Check for messages from ESP32-CAM
   if (Serial.available()) {
     String message = Serial.readStringUntil('\n');
-    message.trim();  // Trim any leading or trailing spaces
+    message.trim();
 
     if (message.length() > 0) {
       Serial.println(message);
-      
-      // Update the condition to check if the switch is pressed
+
       if ((message == "Chair" || message.startsWith("C")) && switchState == LOW) {
-        myDFPlayer.play(1);  // Play track 1
+        myDFPlayer.play(1);
       } else if ((message == "Door" || message.startsWith("D")) && switchState == LOW) {
-        myDFPlayer.play(2);  // Play track 2
+        myDFPlayer.play(2);
       } else if ((message == "Stool" || message.startsWith("S")) && switchState == LOW) {
-        myDFPlayer.play(4);  // Somehow 4 is corresponding to 3.mp3 on memory card
+        myDFPlayer.play(4);  // 4 corresponds to 3.mp3
       } else if ((message == "Wall" || message.startsWith("W")) && switchState == LOW) {
-        myDFPlayer.play(3);  // Somehow 3 is corresponding to 4.mp3 on memory card
+        myDFPlayer.play(3);  // 3 corresponds to 4.mp3
       } else if ((message == "None" || message.startsWith("N")) && switchState == LOW) {
-        // Optional: Do nothing or stop the music
         myDFPlayer.stop();
       }
     }
   }
 
-  // IR sensor logic
+  // IR Obstacle Detection
   if (irValue == LOW) {
-    tone(buzzerPin, 3000);  // Make sound at 3000Hz
+    tone(buzzerPin, 3000);
     delay(500);
-    noTone(buzzerPin);  // Stop sound
+    noTone(buzzerPin);
   } else {
-    // Measure distance using ultrasonic sensor
+    // Ultrasonic Distance Detection
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(TRIG_PIN, LOW);
 
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000);  // Read echo signal duration
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
     if (duration > 0) {
-      long distance = (duration / 2) / 29.1;  // Calculate distance in cm
+      long distance = (duration / 2) / 29.1;
       Serial.print("Distance: ");
       Serial.print(distance);
       Serial.println(" cm");
 
-      // Trigger buzzer if distance is less than or equal to 25 cm
       if (distance <= 25) {
-        tone(buzzerPin, 1000);  // Make sound at 1000Hz
+        tone(buzzerPin, 1000);
         delay(500);
-        noTone(buzzerPin);  // Stop sound
+        noTone(buzzerPin);
       }
     } else {
       Serial.println("Ultrasonic error: no echo");
     }
   }
 
-  delay(100);  // Small delay to stabilize loop
+  delay(100);
 }
