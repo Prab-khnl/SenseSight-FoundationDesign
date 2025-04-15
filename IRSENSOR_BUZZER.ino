@@ -19,7 +19,7 @@ void loop() {
   // If the sensor detects an object (or whatever state you want to trigger the buzzer)
   if (sensorValue == LOW) { // Or LOW, depending on your sensor's output
     // Turn on the buzzer
-    tone(buzzerPin, 1000); // Play a tone at 3000 Hz
+    tone(buzzerPin, 3000); // Play a tone at 3000 Hz
     delay(500); // Delay for 500 milliseconds
     noTone(buzzerPin); // Stop the tone
   }
